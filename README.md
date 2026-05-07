@@ -1,52 +1,55 @@
-# investments-alert-agent
+# investments-alerts
 
-An automated ETF dip alert agent that monitors stock prices daily and sends intelligent Slack notifications when meaningful drops are detected.
+A scheduled ETF price monitor that sends daily Slack alerts with AI-generated market context. Built with GitHub Actions + Claude API — runs entirely in the cloud, no server or local machine needed.
 
-Built with GitHub Actions + Claude API (Anthropic). Runs entirely in the cloud — no server or local machine needed.
+> This is not an "agent" — it's an honest alert system. GitHub Actions handles the scheduling, Python handles the logic, and Claude API is called only where intelligence adds genuine value: summarizing real news headlines on dip days.
 
 ---
 
 ## How It Works
 
-Every weekday at market close (5pm ET), the agent:
+Every weekday at 9am CET, the workflow:
 
 1. Fetches the latest VOO closing price via Yahoo Finance
-2. Compares it against the tracked recent peak (stored in `state.json`)
-3. Calculates the % drop and determines the alert tier:
-   - **< 3% drop** → silent daily update posted to Slack (no notification)
-   - **3–5% drop** → 🟡 Heads-Up alert with AI-generated market summary
-   - **8%+ drop** → 🚨 Strong Dip alert with AI-generated market summary
-4. If a new all-time high is reached, the peak is automatically updated in `state.json`
+2. Fetches the top 10 recent VOO/market headlines via Yahoo Finance
+3. Compares price against the tracked recent peak (stored in `state.json`)
+4. Calculates the % drop and determines the alert tier:
+   - **< 3% drop** → daily Slack update with 1-sentence Haiku summary (no ping)
+   - **3–5% drop** → 🟡 Heads-Up alert with 2-sentence Sonnet summary
+   - **8%+ drop** → 🚨 Strong Dip alert with 2-sentence Sonnet summary
+5. If a new all-time high is reached, the peak auto-updates in `state.json`
 
-For Tier 1 and Tier 2 alerts, Claude (Haiku) generates a 2-sentence market context summary to help you make an informed decision. No trades are executed — all buy decisions are yours.
+Claude is only called for the market summary — the logic (fetch, compare, alert) is plain Python.
 
 ---
 
 ## Example Slack Messages
 
-**Normal day:**
+**Normal day (no ping):**
 ```
-VOO Daily Update — 2026-05-07
+*VOO Daily Update — 2026-05-07*
 Closed: $668.00 | Recent Peak: $675.00 | Drop: -1.0%
 Status: ✅ Within normal range.
+
+_US equities closed modestly lower as investors awaited Friday's jobs report amid mixed earnings results._
 ```
 
-**Tier 1 — Heads-Up:**
+**Tier 1 — Heads-Up (pings you):**
 ```
 @here 🟡 VOO Heads-Up — 2026-05-07
 Closed: $651.00 | Recent Peak: $675.00 | Drop: -3.6%
 
-[2-sentence Claude summary of market context]
+_The pullback reflects broad risk-off sentiment following hawkish Fed commentary; for a long-term index investor, this remains within normal volatility._
 
 A moderate dip has been detected. Review and consider your next move.
 ```
 
-**Tier 2 — Strong Dip:**
+**Tier 2 — Strong Dip (pings you):**
 ```
 @here 🚨 VOO Strong Dip — 2026-05-07
 Closed: $615.00 | Recent Peak: $675.00 | Drop: -8.9%
 
-[2-sentence Claude summary of market context]
+_The decline is driven by a combination of rising yields and growth fears; historically, S&P 500 corrections of this magnitude have fully recovered within 6–12 months._
 
 A significant dip has been detected. Review and consider your next move.
 ```
@@ -58,13 +61,13 @@ A significant dip has been detected. Review and consider your next move.
 ### 1. Fork or clone this repo
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/investments-alert-agent.git
-cd investments-alert-agent
+git clone https://github.com/YOUR_USERNAME/investments-alerts.git
+cd investments-alerts
 ```
 
 ### 2. Set your starting peak price
 
-Edit `state.json` and set `recent_peak` to VOO's current price:
+Edit `state.json` with VOO's current price as your baseline:
 
 ```json
 {
@@ -87,11 +90,9 @@ Edit `state.json` and set `recent_peak` to VOO's current price:
 2. Navigate to **API Keys** → **Create Key**
 3. Copy the key (starts with `sk-ant-...`)
 
-> The Claude API is only called on Tier 1 and Tier 2 alert days — typical usage cost is minimal (fractions of a cent per call).
-
 ### 5. Add GitHub Secrets
 
-In your GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+In your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
 
 | Secret name | Value |
 |---|---|
@@ -100,33 +101,40 @@ In your GitHub repo → **Settings** → **Secrets and variables** → **Actions
 
 These are never stored in the repo — GitHub injects them only at runtime.
 
-### 6. Enable GitHub Actions
+### 6. (Optional) Local development
 
-GitHub Actions is enabled by default on public repos. The workflow runs automatically every weekday at 9pm UTC (5pm ET).
+Create a `.env` file (already in `.gitignore` — never committed):
 
-To run it manually at any time: go to **Actions** → **VOO Alert Monitor** → **Run workflow**.
+```
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+Then run locally:
+
+```bash
+pip install yfinance anthropic requests python-dotenv
+python monitor.py
+```
 
 ---
 
 ## AI-Powered Market Context
 
-On Tier 1 and Tier 2 alert days, the agent calls the **Claude API (Haiku model)** to generate a 2-sentence market summary alongside the price alert. This helps you understand *why* the dip may be happening before deciding whether to act.
+Claude is called once per run to generate a grounded market summary based on **real Yahoo Finance headlines** fetched at runtime — not hallucinated context.
 
-**What Claude is asked:**
-> "VOO has dropped X% from its recent peak of $Y to $Z today. In exactly 2 sentences: first summarize the likely market context for this drop, then give a brief perspective for a long-term S&P 500 index investor."
+| Day type | Model | Summary |
+|---|---|---|
+| Normal (< 3% drop) | Claude Haiku | 1 sentence — general market mood |
+| Tier 1 (3–5% drop) | Claude Sonnet | 2 sentences — dip context + investor perspective |
+| Tier 2 (8%+ drop) | Claude Sonnet | 2 sentences — dip context + investor perspective |
 
-**Example output:**
-> "The decline appears tied to rising Treasury yields and renewed inflation concerns following this week's CPI data, which rattled equity markets broadly. For a long-term S&P 500 investor, pullbacks of this magnitude have historically represented buying opportunities, as the index has recovered from every correction in its history."
-
-**On normal days (< 3% drop), Claude is not called** — the daily update is purely data-driven, keeping API costs near zero. Claude is invoked only when there's something meaningful to say.
-
-**Cost:** Claude Haiku is Anthropic's fastest and cheapest model. A typical 2-sentence response costs a fraction of a cent. Even with daily Tier 1/2 alerts, monthly API costs would be under $1.
+**Cost:** Haiku costs fractions of a cent. Sonnet is called only on meaningful dip days. Total monthly cost is typically under $1.
 
 ---
 
-## Customizing Thresholds
+## Customizing
 
-To adjust the dip thresholds, edit these lines in `monitor.py`:
+**Change dip thresholds** in `monitor.py`:
 
 ```python
 if drop_pct >= 8:    # Tier 2 — Strong Dip
@@ -135,19 +143,25 @@ elif drop_pct >= 3:  # Tier 1 — Heads-Up
     tier = 1
 ```
 
-To monitor a different ETF, change the ticker in `monitor.py`:
+**Monitor a different ETF:**
 
 ```python
-ticker = yf.Ticker("VOO")  # Change to QQQ, VTI, etc.
+ticker = yf.Ticker("VOO")  # Change to QQQ, VTI, SPY, etc.
+```
+
+**Change the schedule** in `.github/workflows/voo-monitor.yml`:
+
+```yaml
+cron: '0 7 * * 1-5'  # 7am UTC = 9am CET — change to suit your timezone
 ```
 
 ---
 
 ## Tech Stack
 
-- **GitHub Actions** — cloud scheduler, no server needed
-- **yfinance** — free Yahoo Finance price data
-- **Anthropic Claude API (Haiku)** — AI market summary on dip days only
+- **GitHub Actions** — free cloud scheduler, no server needed
+- **yfinance** — free Yahoo Finance price + news data
+- **Anthropic Claude API** — Haiku for daily summaries, Sonnet for dip alerts
 - **Slack Incoming Webhooks** — alert delivery
 
 ---
