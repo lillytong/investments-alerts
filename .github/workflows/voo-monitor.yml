@@ -1,0 +1,38 @@
+name: VOO Alert Monitor
+
+on:
+  schedule:
+    - cron: '0 21 * * 1-5'  # 9pm UTC = 5pm ET, weekdays only (after market close)
+  workflow_dispatch:          # Allow manual trigger from GitHub UI for testing
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write         # Needed to commit state.json updates back to repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install yfinance anthropic requests
+
+      - name: Run monitor
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python monitor.py
+
+      - name: Commit state changes if peak updated
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add state.json
+          git diff --staged --quiet || git commit -m "chore: update VOO peak state $(date +%Y-%m-%d)"
+          git push
