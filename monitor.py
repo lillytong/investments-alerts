@@ -32,14 +32,24 @@ def send_slack_message(webhook_url, message):
 
 def get_claude_summary(current_price, recent_peak, drop_pct, tier):
     client = anthropic.Anthropic()
-    prompt = (
-        f"VOO (S&P 500 ETF) has dropped {drop_pct:.1f}% from its recent peak of "
-        f"${recent_peak:.2f} to ${current_price:.2f} today. "
-        f"This is a {'moderate' if tier == 1 else 'significant'} dip. "
-        f"In exactly 2 sentences: first summarize the likely market context for this drop, "
-        f"then give a brief perspective for a long-term S&P 500 index investor. "
-        f"Be factual and concise, not alarmist."
-    )
+
+    if tier == 0:
+        prompt = (
+            f"VOO (S&P 500 ETF) closed at ${current_price:.2f} yesterday, "
+            f"down {drop_pct:.1f}% from its recent peak of ${recent_peak:.2f}. "
+            f"In exactly 2 sentences: briefly summarize yesterday's general US market mood "
+            f"and any notable macro context. Be factual and concise."
+        )
+    else:
+        prompt = (
+            f"VOO (S&P 500 ETF) has dropped {drop_pct:.1f}% from its recent peak of "
+            f"${recent_peak:.2f} to ${current_price:.2f} yesterday. "
+            f"This is a {'moderate' if tier == 1 else 'significant'} dip. "
+            f"In exactly 2 sentences: first summarize the likely market context for this drop, "
+            f"then give a brief perspective for a long-term S&P 500 index investor. "
+            f"Be factual and concise, not alarmist."
+        )
+
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=150,
@@ -75,10 +85,12 @@ def main():
         tier = 0
 
     if tier == 0:
+        summary = get_claude_summary(current_price, recent_peak, drop_pct, tier)
         message = (
             f"*VOO Daily Update — {today}*\n"
             f"Closed: ${current_price:.2f} | Recent Peak: ${recent_peak:.2f} | Drop: -{drop_pct:.1f}%\n"
-            f"Status: ✅ Within normal range."
+            f"Status: ✅ Within normal range.\n\n"
+            f"{summary}"
         )
     else:
         summary = get_claude_summary(current_price, recent_peak, drop_pct, tier)
