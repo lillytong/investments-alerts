@@ -21,7 +21,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install yfinance anthropic requests
+        run: pip install yfinance anthropic requests python-dotenv
 
       - name: Run monitor
         env:

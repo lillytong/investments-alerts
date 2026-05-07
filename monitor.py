@@ -4,6 +4,9 @@ import os
 import requests
 from datetime import datetime
 import anthropic
+from dotenv import load_dotenv
+
+load_dotenv()  # loads .env locally; no-op in GitHub Actions where secrets are injected
 
 STATE_FILE = "state.json"
 
