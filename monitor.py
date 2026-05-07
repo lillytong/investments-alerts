@@ -36,7 +36,6 @@ def get_market_news(max_headlines=10):
 
     headlines = []
     for item in raw_news[:max_headlines]:
-        # yfinance news structure varies by version — try both formats
         content = item.get("content", {})
         title = content.get("title") or item.get("title", "")
         summary = content.get("summary") or item.get("summary", "")
@@ -57,35 +56,20 @@ def send_slack_message(webhook_url, message):
 def get_claude_summary(current_price, recent_peak, drop_pct, tier, news_context):
     client = anthropic.Anthropic()
     news_block = f"Recent market headlines:\n{news_context}"
-
-    if tier == 0:
-        prompt = (
-            f"VOO (S&P 500 ETF) closed at ${current_price:.2f} yesterday, "
-            f"down {drop_pct:.1f}% from its recent peak of ${recent_peak:.2f}.\n\n"
-            f"{news_block}\n\n"
-            f"Based on these headlines, write exactly 1 sentence summarizing yesterday's "
-            f"US market mood. Be factual and concise."
-        )
-        model = "claude-haiku-4-5-20251001"
-        max_tokens = 80
-    else:
-        prompt = (
-            f"VOO (S&P 500 ETF) dropped {drop_pct:.1f}% from its recent peak of "
-            f"${recent_peak:.2f} to ${current_price:.2f} yesterday. "
-            f"This is a {'moderate' if tier == 1 else 'significant'} dip.\n\n"
-            f"{news_block}\n\n"
-            f"Based on these headlines, write exactly 2 sentences: first explain the likely "
-            f"market context for this drop, then give a brief perspective for a long-term "
-            f"S&P 500 index investor. Be factual and concise, not alarmist."
-        )
-        model = "claude-sonnet-4-6"
-        max_tokens = 150
-
+    prompt = (
+        f"VOO (S&P 500 ETF) dropped {drop_pct:.1f}% from its recent peak of "
+        f"${recent_peak:.2f} to ${current_price:.2f} yesterday. "
+        f"This is a {'moderate' if tier == 1 else 'significant'} dip.\n\n"
+        f"{news_block}\n\n"
+        f"Based on these headlines, write exactly 2 sentences: first explain the likely "
+        f"market context for this drop, then give a brief perspective for a long-term "
+        f"S&P 500 index investor. Be factual and concise, not alarmist."
+    )
     try:
-        print(f"Calling Claude ({model})...")
+        print(f"Calling Claude Sonnet...")
         message = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
+            model="claude-sonnet-4-6",
+            max_tokens=150,
             messages=[{"role": "user", "content": prompt}],
         )
         summary = message.content[0].text
@@ -122,31 +106,30 @@ def main():
     else:
         tier = 0
 
-    # Fetch news and generate summary for all tiers
-    news_context = get_market_news(max_headlines=10)
-    summary = get_claude_summary(current_price, recent_peak, drop_pct, tier, news_context)
-
     if tier == 0:
         message = (
             f"*VOO Daily Update — {today}*\n"
             f"Closed: ${current_price:.2f} | Recent Peak: ${recent_peak:.2f} | Drop: -{drop_pct:.1f}%\n"
-            f"Status: ✅ Within normal range.\n\n"
-            f"_{summary}_"
-        )
-    elif tier == 1:
-        message = (
-            f"@here 🟡 *VOO Heads-Up — {today}*\n"
-            f"Closed: ${current_price:.2f} | Recent Peak: ${recent_peak:.2f} | Drop: -{drop_pct:.1f}%\n\n"
-            f"_{summary}_\n\n"
-            f"A moderate dip has been detected. Review and consider your next move."
+            f"Status: ✅ Within normal range."
         )
     else:
-        message = (
-            f"@here 🚨 *VOO Strong Dip — {today}*\n"
-            f"Closed: ${current_price:.2f} | Recent Peak: ${recent_peak:.2f} | Drop: -{drop_pct:.1f}%\n\n"
-            f"_{summary}_\n\n"
-            f"A significant dip has been detected. Review and consider your next move."
-        )
+        news_context = get_market_news(max_headlines=10)
+        summary = get_claude_summary(current_price, recent_peak, drop_pct, tier, news_context)
+
+        if tier == 1:
+            message = (
+                f"@here 🟡 *VOO Heads-Up — {today}*\n"
+                f"Closed: ${current_price:.2f} | Recent Peak: ${recent_peak:.2f} | Drop: -{drop_pct:.1f}%\n\n"
+                f"_{summary}_\n\n"
+                f"A moderate dip has been detected. Review and consider your next move."
+            )
+        else:
+            message = (
+                f"@here 🚨 *VOO Strong Dip — {today}*\n"
+                f"Closed: ${current_price:.2f} | Recent Peak: ${recent_peak:.2f} | Drop: -{drop_pct:.1f}%\n\n"
+                f"_{summary}_\n\n"
+                f"A significant dip has been detected. Review and consider your next move."
+            )
 
     send_slack_message(slack_webhook, message)
     print(f"Alert sent. Tier: {tier}, Price: ${current_price:.2f}, Drop: -{drop_pct:.1f}%")

@@ -2,8 +2,6 @@
 
 A scheduled ETF price monitor that sends daily Slack alerts with AI-generated market context. Built with GitHub Actions + Claude API — runs entirely in the cloud, no server or local machine needed.
 
-> This is not an "agent" — it's an honest alert system. GitHub Actions handles the scheduling, Python handles the logic, and Claude API is called only where intelligence adds genuine value: summarizing real news headlines on dip days.
-
 ---
 
 ## How It Works
@@ -11,27 +9,24 @@ A scheduled ETF price monitor that sends daily Slack alerts with AI-generated ma
 Every weekday at 9am CET, the workflow:
 
 1. Fetches the latest VOO closing price via Yahoo Finance
-2. Fetches the top 10 recent VOO/market headlines via Yahoo Finance
-3. Compares price against the tracked recent peak (stored in `state.json`)
-4. Calculates the % drop and determines the alert tier:
-   - **< 3% drop** → daily Slack update with 1-sentence Haiku summary (no ping)
+2. Compares price against the tracked recent peak (stored in `state.json`)
+3. Calculates the % drop and determines the alert tier:
+   - **< 3% drop** → silent daily Slack update, no Claude call
    - **3–5% drop** → 🟡 Heads-Up alert with 2-sentence Sonnet summary
    - **8%+ drop** → 🚨 Strong Dip alert with 2-sentence Sonnet summary
-5. If a new all-time high is reached, the peak auto-updates in `state.json`
+4. If a new all-time high is reached, the peak auto-updates in `state.json`
 
-Claude is only called for the market summary — the logic (fetch, compare, alert) is plain Python.
+On dip days, Claude Sonnet fetches the top 10 Yahoo Finance headlines and generates a grounded 2-sentence market summary before you decide whether to act.
 
 ---
 
 ## Example Slack Messages
 
-**Normal day (no ping):**
+**Normal day (no ping, no AI call):**
 ```
 *VOO Daily Update — 2026-05-07*
 Closed: $668.00 | Recent Peak: $675.00 | Drop: -1.0%
 Status: ✅ Within normal range.
-
-_US equities closed modestly lower as investors awaited Friday's jobs report amid mixed earnings results._
 ```
 
 **Tier 1 — Heads-Up (pings you):**
@@ -124,11 +119,11 @@ Claude is called once per run to generate a grounded market summary based on **r
 
 | Day type | Model | Summary |
 |---|---|---|
-| Normal (< 3% drop) | Claude Haiku | 1 sentence — general market mood |
+| Normal (< 3% drop) | None | No AI call — just price data |
 | Tier 1 (3–5% drop) | Claude Sonnet | 2 sentences — dip context + investor perspective |
 | Tier 2 (8%+ drop) | Claude Sonnet | 2 sentences — dip context + investor perspective |
 
-**Cost:** Haiku costs fractions of a cent. Sonnet is called only on meaningful dip days. Total monthly cost is typically under $1.
+**Cost:** Sonnet is called only on meaningful dip days. Total monthly cost is typically under $1.
 
 ---
 
