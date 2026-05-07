@@ -27,11 +27,13 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python monitor.py
+        run: python -u monitor.py
 
       - name: Commit state changes if peak updated
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git pull --rebase origin main
           git add state.json
-          git diff --staged --quiet || (git commit -m "chore: update VOO peak state $(date +%Y-%m-%d)" && git pull --rebase && git push)
+          git diff --staged --quiet || git commit -m "chore: update VOO peak state $(date +%Y-%m-%d)"
+          git push
