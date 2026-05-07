@@ -108,6 +108,22 @@ To run it manually at any time: go to **Actions** → **VOO Alert Monitor** → 
 
 ---
 
+## AI-Powered Market Context
+
+On Tier 1 and Tier 2 alert days, the agent calls the **Claude API (Haiku model)** to generate a 2-sentence market summary alongside the price alert. This helps you understand *why* the dip may be happening before deciding whether to act.
+
+**What Claude is asked:**
+> "VOO has dropped X% from its recent peak of $Y to $Z today. In exactly 2 sentences: first summarize the likely market context for this drop, then give a brief perspective for a long-term S&P 500 index investor."
+
+**Example output:**
+> "The decline appears tied to rising Treasury yields and renewed inflation concerns following this week's CPI data, which rattled equity markets broadly. For a long-term S&P 500 investor, pullbacks of this magnitude have historically represented buying opportunities, as the index has recovered from every correction in its history."
+
+**On normal days (< 3% drop), Claude is not called** — the daily update is purely data-driven, keeping API costs near zero. Claude is invoked only when there's something meaningful to say.
+
+**Cost:** Claude Haiku is Anthropic's fastest and cheapest model. A typical 2-sentence response costs a fraction of a cent. Even with daily Tier 1/2 alerts, monthly API costs would be under $1.
+
+---
+
 ## Customizing Thresholds
 
 To adjust the dip thresholds, edit these lines in `monitor.py`:
