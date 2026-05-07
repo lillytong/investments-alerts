@@ -37,9 +37,11 @@ def get_claude_summary(current_price, recent_peak, drop_pct, tier):
         prompt = (
             f"VOO (S&P 500 ETF) closed at ${current_price:.2f} yesterday, "
             f"down {drop_pct:.1f}% from its recent peak of ${recent_peak:.2f}. "
-            f"In exactly 2 sentences: briefly summarize yesterday's general US market mood "
-            f"and any notable macro context. Be factual and concise."
+            f"In exactly 1 sentence, summarize the general US market mood. "
+            f"Be factual and concise."
         )
+        model = "claude-haiku-4-5-20251001"
+        max_tokens = 80
     else:
         prompt = (
             f"VOO (S&P 500 ETF) has dropped {drop_pct:.1f}% from its recent peak of "
@@ -49,10 +51,12 @@ def get_claude_summary(current_price, recent_peak, drop_pct, tier):
             f"then give a brief perspective for a long-term S&P 500 index investor. "
             f"Be factual and concise, not alarmist."
         )
+        model = "claude-sonnet-4-6"
+        max_tokens = 150
 
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=150,
+        model=model,
+        max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
     return message.content[0].text
