@@ -1,9 +1,11 @@
 name: VOO Alert Monitor
 
 on:
-  schedule:
-    - cron: '0 7 * * 1-5'   # 7am UTC = 9am CET (summer) / 8am CET (winter), weekdays only
-  workflow_dispatch:          # Allow manual trigger from GitHub UI for testing
+  # schedule:
+  #   - cron: '0 7 * * 1-5'   # 7am UTC = 9am CET (summer) / 8am CET (winter), weekdays only
+  # NOTE: GitHub cron disabled — scheduling is now handled by Claude remote agent (trig_01Kib5ML6WLkLUNBrSfwaPxa)
+  # which triggers this workflow via workflow_dispatch. See https://claude.ai/code/scheduled/trig_01Kib5ML6WLkLUNBrSfwaPxa
+  workflow_dispatch:          # Triggered by Claude scheduled agent (weekdays 7am UTC)
 
 jobs:
   monitor:
